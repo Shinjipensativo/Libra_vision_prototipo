@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ilha das Mãos Falantes - Aprenda Libras</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap');
+    
+    * {
+      font-family: 'Fredoka', cursive, sans-serif;
+      user-select: none;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    body {
+      background-image: url('img/fundo.png');
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    /* Animação para os botões do HUD */
+    .hover-scale {
+      transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.25s ease;
+    }
+    .hover-scale:hover {
+      transform: scale(1.12);
+      filter: brightness(1.1) drop-shadow(0 6px 12px rgba(0,0,0,0.3));
+    }
+
+    /* Flutuação leve do mapa */
+    .map-float {
+      animation: float 4s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-5px); }
+    }
+
+    /* --- ANIMAÇÕES DE EFEITO AO REDOR DA ÁRVORE --- */
+
+    /* 1. Anel de Luz Pulsante em volta da Árvore */
+    .tree-glow-ring {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 4px solid rgba(255, 255, 255, 0.85);
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.8), inset 0 0 20px rgba(255, 255, 255, 0.5);
+      pointer-events: none;
+      animation: ringGlow 2s ease-in-out infinite alternate;
+    }
+
+    @keyframes ringGlow {
+      0% {
+        transform: scale(0.92);
+        opacity: 0.4;
+        box-shadow: 0 0 12px rgba(255, 230, 100, 0.5);
+        border-color: rgba(255, 255, 255, 0.5);
+      }
+      100% {
+        transform: scale(1.08);
+        opacity: 0.95;
+        box-shadow: 0 0 30px rgba(255, 255, 255, 0.95), 0 0 50px rgba(168, 85, 247, 0.7);
+        border-color: rgba(255, 255, 255, 1);
+      }
+    }
+
+    /* 2. Onda Expansiva Radial constante */
+    .tree-pulse-wave {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 3px solid rgba(255, 255, 255, 0.9);
+      pointer-events: none;
+      animation: waveExpand 2.4s infinite cubic-bezier(0.215, 0.61, 0.355, 1);
+    }
+
+    @keyframes waveExpand {
+      0% {
+        transform: scale(0.7);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(1.5);
+        opacity: 0;
+      }
+    }
+
+    /* 3. Botão do clique transparente sobre a Árvore */
+    .interactive-tree-btn {
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+      cursor: pointer;
+      outline: none;
+      background: transparent;
+      border: none;
+      border-radius: 50%;
+    }
+
+    .interactive-tree-btn:hover {
+      transform: scale(1.12);
+    }
+
+    /* Animação de Clique (Bounce elástico) */
+    .tree-click-bounce {
+      animation: clickBounce 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+    }
+
+    @keyframes clickBounce {
+      0% { transform: scale(1); }
+      30% { transform: scale(0.85); }
+      60% { transform: scale(1.2); }
+      100% { transform: scale(1); }
+    }
+
+    /* Onda de impacto ao clicar */
+    .tree-ripple {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(255,255,255,1) 0%, rgba(234,179,8,0.8) 50%, rgba(255,255,255,0) 80%);
+      transform: translate(-50%, -50%) scale(1);
+      pointer-events: none;
+      z-index: 15;
+      animation: rippleExpand 0.5s ease-out forwards;
+    }
+
+    @keyframes rippleExpand {
+      0% { width: 20px; height: 20px; opacity: 1; }
+      100% { width: 280px; height: 280px; opacity: 0; }
+    }
+  </style>
+</head>
+<body class="flex flex-col justify-between h-screen p-3 sm:p-5 relative overflow-hidden">
+
+  <!-- HUD Superior -->
+  <header class="w-full flex justify-between items-start z-20 shrink-0">
+    <div class="hover-scale cursor-pointer drop-shadow-md">
+      <img src="img/mascote_hud.png" alt="Perfil André" class="w-48 sm:w-64 object-contain">
+    </div>
+
+    <div class="flex gap-2 sm:gap-3 pt-1">
+      <button class="w-10 h-10 sm:w-14 sm:h-14 hover-scale focus:outline-none">
+        <img src="img/home.png" alt="Início" class="w-full h-full object-contain">
+      </button>
+      <button class="w-10 h-10 sm:w-14 sm:h-14 hover-scale focus:outline-none">
+        <img src="img/engrenagem.png" alt="Configurações" class="w-full h-full object-contain">
+      </button>
+    </div>
+  </header>
+
+  <!-- Mapa Central Ampliado (max-w-5xl, scale-105/110) -->
+  <main class="relative w-full max-w-5xl mx-auto flex-1 flex items-center justify-center map-float -mt-8 sm:-mt-12">
+    <div class="relative w-full aspect-[4/3] max-h-[76vh] flex items-center justify-center transform scale-105 sm:scale-110">
+      
+      <!-- Linhas Tracejadas -->
+      <svg class="absolute inset-0 w-full h-full pointer-events-none z-0" viewBox="0 0 100 100" preserveAspectRatio="none">
+        <line x1="50" y1="46" x2="50" y2="25" stroke="white" stroke-width="1.2" stroke-dasharray="2,2" opacity="0.9" />
+        <line x1="45" y1="48" x2="27" y2="48" stroke="white" stroke-width="1.2" stroke-dasharray="2,2" opacity="0.9" />
+        <line x1="55" y1="48" x2="73" y2="48" stroke="white" stroke-width="1.2" stroke-dasharray="2,2" opacity="0.9" />
+        <line x1="46" y1="55" x2="33" y2="72" stroke="white" stroke-width="1.2" stroke-dasharray="2,2" opacity="0.9" />
+        <line x1="54" y1="55" x2="67" y2="72" stroke="white" stroke-width="1.2" stroke-dasharray="2,2" opacity="0.9" />
+      </svg>
+
+      <!-- Imagem do Mapa das Ilhas -->
+      <img src="img/ilhas.png" alt="Mapa das Ilhas" class="w-full h-full object-contain drop-shadow-xl z-0">
+
+      <!-- 1. Ilha da Praia - BLOQUEADA -->
+      <button onclick="clickLockedIsland('Ilha da Praia')" 
+              class="absolute w-[22%] h-[26%] top-[12%] left-[39%] flex items-center justify-center hover-scale focus:outline-none z-10 group">
+        <img src="img/cadeado.png" alt="Bloqueado" class="w-14 h-14 sm:w-18 sm:h-18 md:w-20 md:h-20 drop-shadow-lg group-hover:scale-125 transition-transform">
+      </button>
+
+      <!-- 2. Ilha da Praça - BLOQUEADA -->
+      <button onclick="clickLockedIsland('Ilha da Praça')" 
+              class="absolute w-[24%] h-[30%] top-[34%] left-[15%] flex items-center justify-center hover-scale focus:outline-none z-10 group">
+        <img src="img/cadeado.png" alt="Bloqueado" class="w-14 h-14 sm:w-18 sm:h-18 md:w-20 md:h-20 drop-shadow-lg group-hover:scale-125 transition-transform">
+      </button>
+
+      <!-- 3. Ilha das Montanhas - BLOQUEADA -->
+      <button onclick="clickLockedIsland('Ilha das Montanhas')" 
+              class="absolute w-[24%] h-[30%] top-[34%] right-[15%] flex items-center justify-center hover-scale focus:outline-none z-10 group">
+        <img src="img/cadeado.png" alt="Bloqueado" class="w-14 h-14 sm:w-18 sm:h-18 md:w-20 md:h-20 drop-shadow-lg group-hover:scale-125 transition-transform">
+      </button>
+
+      <!-- 4. ÁRVORE CENTRAL (DESBLOQUEADA) -->
+      <div class="absolute w-[22%] h-[28%] top-[36%] left-[39%] flex items-center justify-center z-10">
+        <!-- Efeitos visuais ao redor -->
+        <div class="tree-pulse-wave"></div>
+        <div class="tree-glow-ring"></div>
+
+        <!-- Botão transparente interativo -->
+        <button id="tree-button"
+                onmousedown="triggerTreeAnimation(event)"
+                ontouchstart="triggerTreeAnimation(event)"
+                title="Abrir Árvore do Alfabeto"
+                class="w-full h-full interactive-tree-btn relative z-10">
+        </button>
+      </div>
+
+      <!-- 5. Ilha do Zoológico - BLOQUEADA -->
+      <button onclick="clickLockedIsland('Ilha do Zoológico')" 
+              class="absolute w-[26%] h-[32%] bottom-[8%] left-[20%] flex items-center justify-center hover-scale focus:outline-none z-10 group">
+        <img src="img/cadeado.png" alt="Bloqueado" class="w-14 h-14 sm:w-18 sm:h-18 md:w-20 md:h-20 drop-shadow-lg group-hover:scale-125 transition-transform">
+      </button>
+
+      <!-- 6. Ilha do Castelo - BLOQUEADA -->
+      <button onclick="clickLockedIsland('Ilha do Castelo')" 
+              class="absolute w-[26%] h-[32%] bottom-[8%] right-[20%] flex items-center justify-center hover-scale focus:outline-none z-10 group">
+        <img src="img/cadeado.png" alt="Bloqueado" class="w-14 h-14 sm:w-18 sm:h-18 md:w-20 md:h-20 drop-shadow-lg group-hover:scale-125 transition-transform">
+      </button>
+
+    </div>
+  </main>
+
+  <!-- HUD Inferior (Inalterado) -->
+  <footer class="w-full flex justify-between items-end z-20 pb-3 sm:pb-5 shrink-0">
+    <button class="w-12 h-12 sm:w-16 sm:h-16 hover-scale focus:outline-none">
+      <img src="img/interrogacao.png" alt="Ajuda" class="w-full h-full object-contain drop-shadow-md">
+    </button>
+
+    <button class="w-12 h-12 sm:w-16 sm:h-16 hover-scale focus:outline-none">
+      <img src="img/bussola.png" alt="Bússola" class="w-full h-full object-contain drop-shadow-md">
+    </button>
+  </footer>
+
+  <!-- MODAIS DE INTERAÇÃO -->
+  <div id="modal-locked" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4">
+    <div class="bg-gradient-to-b from-purple-700 to-indigo-900 rounded-3xl p-6 border-4 border-yellow-400 max-w-sm w-full text-center shadow-2xl relative text-white">
+      <div class="w-16 h-16 mx-auto mb-3 bg-purple-950 border-2 border-yellow-400 rounded-full flex items-center justify-center">
+        <img src="img/cadeado.png" class="w-10 h-10">
+      </div>
+      <h3 class="text-2xl font-black text-yellow-300 mb-2">Ilha Bloqueada!</h3>
+      <p id="locked-message-text" class="text-sm font-bold text-purple-100 mb-6 leading-relaxed">
+        Para desbloquear esta ilha, você precisa antes concluir a Árvore do Alfabeto!
+      </p>
+      <button onclick="closeModal('modal-locked')" class="w-full bg-yellow-400 hover:bg-yellow-300 text-purple-950 font-black py-3 rounded-2xl hover-scale shadow-lg border-b-4 border-yellow-600">
+        Entendido!
+      </button>
+    </div>
+  </div>
+
+  <div id="modal-lessons" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4">
+    <div class="bg-gradient-to-b from-sky-300 to-blue-500 rounded-3xl p-6 border-4 border-white max-w-md w-full text-center shadow-2xl relative">
+      <button onclick="closeModal('modal-lessons')" class="absolute top-3 right-3 w-10 h-10 bg-red-500 text-white rounded-full font-bold text-xl border-2 border-white hover-scale">✕</button>
+      <h2 class="text-3xl font-extrabold text-white mb-2 drop-shadow">Ilha do Alfabeto</h2>
+      <p class="text-blue-900 font-bold mb-6">Aprenda a soletrar com a mascote Lia!</p>
+      
+      <div class="space-y-3">
+        <button onclick="startLesson(1)" class="w-full bg-yellow-400 hover:bg-yellow-300 border-b-4 border-yellow-600 text-purple-950 font-extrabold text-xl py-3 px-6 rounded-2xl flex items-center justify-between hover-scale shadow-lg">
+          <span>Lição 1: Nome LIA</span>
+          <i class="fas fa-play-circle text-2xl"></i>
+        </button>
+        <button disabled class="w-full bg-gray-300 text-gray-500 font-bold text-xl py-3 px-6 rounded-2xl flex items-center justify-between opacity-60 cursor-not-allowed">
+          <span>Lição 2: Letras M, N, O</span>
+          <i class="fas fa-lock text-xl"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-practice" class="fixed inset-0 bg-black/70 backdrop-blur-md hidden flex items-center justify-center z-50 p-4">
+    <div class="bg-gradient-to-b from-purple-600 to-indigo-800 rounded-3xl p-6 border-4 border-yellow-400 max-w-xl w-full text-white relative shadow-2xl">
+      <button onclick="closeModal('modal-practice')" class="absolute top-3 right-3 w-10 h-10 bg-red-500 text-white rounded-full font-bold text-xl border-2 border-white hover-scale">✕</button>
+      
+      <div class="text-center mb-4">
+        <span class="bg-yellow-400 text-purple-950 font-black px-4 py-1 rounded-full text-sm">LIÇÃO 1</span>
+        <h3 id="step-title" class="text-2xl font-black mt-2 text-yellow-300">Faça o sinal da letra "L"</h3>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-4">
+        <div class="bg-purple-900/60 rounded-2xl p-4 border-2 border-purple-400/50 flex flex-col items-center justify-center text-center">
+          <div class="w-20 h-20 rounded-full bg-yellow-200 border-2 border-yellow-400 flex items-center justify-center text-4xl mb-2">
+            🦊
+          </div>
+          <span class="text-xs text-yellow-300 font-bold mb-2">Lia, sua guia</span>
+          
+          <div id="libras-demo" class="w-28 h-28 bg-white/10 rounded-xl border-2 border-dashed border-yellow-300 flex items-center justify-center text-6xl">
+            👆
+          </div>
+          <button onclick="repeatSignal()" class="mt-3 bg-purple-500 hover:bg-purple-400 text-xs font-bold py-1.5 px-4 rounded-full border border-purple-300 flex items-center gap-1 hover-scale">
+            <i class="fas fa-redo"></i> Repetir Sinal
+          </button>
+        </div>
+
+        <div id="camera-box" class="bg-black/40 rounded-2xl p-2 border-4 border-yellow-400 flex flex-col items-center justify-center relative min-h-[200px] overflow-hidden">
+          <video id="webcam" autoplay playsinline class="w-full h-full object-cover rounded-xl hidden"></video>
+          
+          <div id="camera-placeholder" class="text-center p-4">
+            <i class="fas fa-camera text-4xl text-purple-300 mb-2"></i>
+            <p class="text-xs text-purple-200">Ligue sua câmera para validar o sinal!</p>
+          </div>
+
+          <div id="feedback-overlay" class="absolute inset-0 hidden flex flex-col items-center justify-center font-black text-2xl transition-all">
+            <span id="feedback-icon" class="text-5xl mb-1"></span>
+            <span id="feedback-text"></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-2 mt-4">
+        <button id="btn-webcam" onclick="startCamera()" class="w-full bg-emerald-500 hover:bg-emerald-400 border-b-4 border-emerald-700 text-white font-extrabold py-2.5 rounded-xl hover-scale flex items-center justify-center gap-2">
+          <i class="fas fa-video"></i> Ligar Câmera
+        </button>
+
+        <div class="flex gap-2">
+          <button onclick="testSignal(false)" class="flex-1 bg-red-500 hover:bg-red-400 text-white font-bold py-2 rounded-xl text-xs hover-scale">
+            Simular Erro ❌
+          </button>
+          <button onclick="testSignal(true)" class="flex-1 bg-green-500 hover:bg-green-400 text-white font-bold py-2 rounded-xl text-xs hover-scale">
+            Simular Acerto ✅
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    let currentStep = 0;
+    const steps = [
+      { title: 'Faça o sinal da letra "L"', emoji: '👆', letter: 'L' },
+      { title: 'Faça o sinal da letra "I"', emoji: '🤙', letter: 'I' },
+      { title: 'Faça o sinal da letra "A"', emoji: '✊', letter: 'A' },
+      { title: 'Agora faça a palavra completa "LIA"!', emoji: '✨ L-I-A ✨', letter: 'LIA' }
+    ];
+
+    function triggerTreeAnimation(event) {
+      const btn = document.getElementById('tree-button');
+      
+      btn.classList.remove('tree-click-bounce');
+      void btn.offsetWidth; 
+      btn.classList.add('tree-click-bounce');
+
+      const parent = btn.parentElement;
+      const ripple = document.createElement('div');
+      ripple.className = 'tree-ripple';
+      parent.appendChild(ripple);
+
+      setTimeout(() => ripple.remove(), 500);
+
+      setTimeout(() => {
+        openLessonsModal();
+      }, 300);
+    }
+
+    function clickLockedIsland(islandName) {
+      document.getElementById('locked-message-text').innerText = `Para desbloquear a ${islandName}, você precisa antes concluir a Árvore do Alfabeto!`;
+      document.getElementById('modal-locked').classList.remove('hidden');
+    }
+
+    function openLessonsModal() {
+      document.getElementById('modal-lessons').classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+      if (id === 'modal-practice') stopCamera();
+    }
+
+    function startLesson(id) {
+      closeModal('modal-lessons');
+      currentStep = 0;
+      updateStepUI();
+      document.getElementById('modal-practice').classList.remove('hidden');
+    }
+
+    function updateStepUI() {
+      const step = steps[currentStep];
+      document.getElementById('step-title').innerText = step.title;
+      document.getElementById('libras-demo').innerText = step.emoji;
+      
+      const box = document.getElementById('camera-box');
+      box.className = "bg-black/40 rounded-2xl p-2 border-4 border-yellow-400 flex flex-col items-center justify-center relative min-h-[200px] overflow-hidden";
+      document.getElementById('feedback-overlay').classList.add('hidden');
+    }
+
+    function repeatSignal() {
+      const demo = document.getElementById('libras-demo');
+      demo.classList.add('scale-125');
+      setTimeout(() => demo.classList.remove('scale-125'), 300);
+    }
+
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const video = document.getElementById('webcam');
+        video.srcObject = stream;
+        video.classList.remove('hidden');
+        document.getElementById('camera-placeholder').classList.add('hidden');
+        document.getElementById('btn-webcam').innerText = 'Câmera Ativa 🎥';
+      } catch (err) {
+        alert('Não foi possível ligar a câmera. Você pode usar os botões de simulação abaixo!');
+      }
+    }
+
+    function stopCamera() {
+      const video = document.getElementById('webcam');
+      if (video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+      }
+      video.classList.add('hidden');
+      document.getElementById('camera-placeholder').classList.remove('hidden');
+      document.getElementById('btn-webcam').innerHTML = '<i class="fas fa-video"></i> Ligar Câmera';
+    }
+
+    function testSignal(success) {
+      const box = document.getElementById('camera-box');
+      const overlay = document.getElementById('feedback-overlay');
+      const icon = document.getElementById('feedback-icon');
+      const text = document.getElementById('feedback-text');
+
+      overlay.classList.remove('hidden');
+
+      if (success) {
+        box.className = "bg-green-900/80 rounded-2xl p-2 border-4 border-green-400 flex flex-col items-center justify-center relative min-h-[200px] overflow-hidden";
+        overlay.className = "absolute inset-0 flex flex-col items-center justify-center font-black text-2xl text-green-300 bg-green-950/80";
+        icon.innerText = '🎉';
+        text.innerText = 'INCRÍVEL! CORRETO!';
+
+        confetti({ particleCount: 80, spread: 60, origin: { y: 0.6 } });
+
+        setTimeout(() => {
+          if (currentStep < steps.length - 1) {
+            currentStep++;
+            updateStepUI();
+          } else {
+            alert('Parabéns! Você aprendeu a soletrar LIA em Libras!');
+            closeModal('modal-practice');
+          }
+        }, 1800);
+
+      } else {
+        box.className = "bg-red-900/80 rounded-2xl p-2 border-4 border-red-500 flex flex-col items-center justify-center relative min-h-[200px] overflow-hidden";
+        overlay.className = "absolute inset-0 flex flex-col items-center justify-center font-black text-2xl text-red-200 bg-red-950/80";
+        icon.innerText = '❌';
+        text.innerText = 'Tente novamente!';
+
+        setTimeout(() => {
+          overlay.classList.add('hidden');
+          box.className = "bg-black/40 rounded-2xl p-2 border-4 border-yellow-400 flex flex-col items-center justify-center relative min-h-[200px] overflow-hidden";
+        }, 1500);
+      }
+    }
+  </script>
+</body>
+</html>
